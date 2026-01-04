@@ -1,0 +1,10 @@
+Feature Name,Original Columns Used,Source Dataset,Feature Type,Description,Predictive Purpose
+transit_time_days,"actual_delivery_date, planned_delivery_date",SCMS,Temporal,Days difference between planned and actual delivery,Detect systematic transit delays
+route_delay_rate_90d,"origin, destination, actual_delivery_date, planned_delivery_date",SCMS,Historical,Share of delays on the same route in the last 90 days,Capture structural geographic risk
+avg_route_cost,"shipment_cost, origin, destination",SCMS,Statistical,Average shipping cost per route,Proxy for logistics constraints and complexity
+transit_time_std,"actual_delivery_date, origin, destination",SCMS,Variability,Variance of historic transit times,Identify unstable or unpredictable routes
+order_processing_time,"order_date, shipping_date",DataCo,Temporal,Time from order creation to shipping,Measure internal operational lead time
+customer_delay_history,"customer_id, Late_delivery_risk",DataCo,Historical,Share of late deliveries per customer,Capture recurring customer-specific issues
+product_delay_rate,"product_category, Late_delivery_risk",DataCo,Product-level,Delay rate grouped by product type or category,Identify product categories that are harder to ship
+ship_mode_risk,"shipping_mode, Late_delivery_risk",DataCo,Categorical,Late-delivery risk associated with transportation mode,Quantify impact of transport mode choice
+seasonality_week,order_date,Both,Temporal,Week-of-year derived from order date,Capture peak seasons and demand cycles

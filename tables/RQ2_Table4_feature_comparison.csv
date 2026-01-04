@@ -1,0 +1,6 @@
+Feature Type,DataCo,SCMS,Merged Data
+Customer behavior history,Yes,No,Yes
+Route transit variability,No,Yes,Yes
+Seasonal demand,Yes,No,Yes
+Cost vs delay correlation,No,Yes,Yes
+Product-category risk,Yes,No,Yes
