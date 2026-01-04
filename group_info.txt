@@ -1,0 +1,9 @@
+Group: WS25-DE06
+
+Members:
+ - Seoyeon Kim – Technical Lead
+ - Salome Rodriguez Donoso – Documentation & Presentation Lead
+
+GitHub repository:
+ https://github.com/Salorodriguezd/WS25-DE6
+

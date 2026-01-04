@@ -136,6 +136,36 @@ All RQ1–RQ3 modeling scripts use this feature‑engineered file as their main 
 
 The DAG in `dags/project_pipeline_dag.py` mirrors the project pipeline with tasks
 
+The DAG in `dags/project_pipeline_dag.py` mirrors the project pipeline with tasks such as:
+
+- `extract_dataco`, `extract_scms`
+- `clean_dataco`, `clean_scms`
+- `merge_multisource`
+- `engineer_features`
+- `train_rq1_models`, `train_rq2_models`, `train_rq3_models`
+- `generate_figures_and_tables`
+
+The DAG was developed and tested with:
+
+- **Apache Airflow**: `3.1.5`
+
+To run the DAG locally:
+
+1. Ensure Airflow is installed in your environment.
+2. Copy `dags/project_pipeline_dag.py` into your Airflow `dags/` directory (or point `AIRFLOW_HOME/dags` to this repository’s `dags/` folder).
+3. Initialize Airflow and start the services:
+
+   ```bash
+   airflow db init
+   airflow webserver
+   airflow scheduler
+   ```
+4. Open the Airflow UI (by default at `http://localhost:8080`), enable the project DAG, and trigger a run.
+
+The DAG will execute the same steps as the manual CLI commands described in Section 5, and will generate all figures and tables under `figures/` and `tables/`.
+
+
+
 ## 7. Roles and contributors
 
 - Group: **WS25-DE06**
