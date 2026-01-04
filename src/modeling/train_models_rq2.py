@@ -96,7 +96,7 @@ def _select_features_scms(df: pd.DataFrame) -> pd.DataFrame:
         "PO Sent to Vendor Date",
         "Scheduled Delivery Date",
         "Delivered to Client Date",
-[O        "Delivery Recorded Date",
+        "Delivery Recorded Date",
         "Product Group",
         "Sub Classification",
         "Vendor",
@@ -151,7 +151,7 @@ def run_rq2_table3(
     dataco_path: str = "data/DataCo_clean_dates_ddmmyyyy.csv",
     scms_path: str = "data/SCMS_cleaned.csv",
     merged_path: str = "data/merged/merged_with_engineered_features.csv",
-[I    output_csv: str = "tables/RQ2_Table3_multisource_vs_single.csv",
+    output_csv: str = "tables/RQ2_Table3_multisource_vs_single.csv",
 ) -> pd.DataFrame:
     """
     Train the same classifier (XGBoost) on:

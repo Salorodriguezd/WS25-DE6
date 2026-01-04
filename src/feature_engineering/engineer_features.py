@@ -143,7 +143,7 @@ def engineer_features(
             df.groupby(prod_key, dropna=False)[TARGET_COL]
             .mean()
             .rename("product_delay_rate")
-[O            .reset_index()
+            .reset_index()
         )
         df = df.merge(
             prod_grp,
@@ -152,6 +152,7 @@ def engineer_features(
         )
     else:
         df["product_delay_rate"] = np.nan
+
 
     # ------------------------------------------------------------------
     # 5. Route delay rate: (Customer Country, Shipping Mode) combination
