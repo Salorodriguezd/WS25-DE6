@@ -1,6 +1,7 @@
 
 import pandas as pd # data frames
 
+def clean_dataSCMS(df: pd.DataFrame) -> pd.DataFrame:
 
 df_mod = df.copy() #Create a copy of the data frame
 
@@ -46,3 +47,4 @@ for col in cat_cols:
     )
 
 return df_mod
+
