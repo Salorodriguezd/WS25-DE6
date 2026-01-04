@@ -1,0 +1,11 @@
+predictor,importance_score
+Days for shipment (scheduled),0.33569586277008057
+Days for shipping (real),0.2813267707824707
+ship_mode_risk,0.14985321462154388
+lead_time_days,0.10929474234580994
+route_delay_rate,0.08868084102869034
+customer_delay_history,0.014388800598680973
+Latitude,0.0019096835749223828
+Longitude,0.001821936690248549
+Order Item Quantity,0.0015826659509912133
+Sales,0.0014699071180075407
