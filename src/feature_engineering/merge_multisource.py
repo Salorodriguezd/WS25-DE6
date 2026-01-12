@@ -53,7 +53,7 @@ def build_merged_dataset(
             delay_rate=("is_delayed", "mean"),
             avg_freight_cost=("Freight Cost (USD)", "mean"),
             avg_weight=("Weight (Kilograms)", "mean"),
-            n_shipments=("ID", "count"),
+            n_shipments=("Country", "count"),
         )
         .reset_index()
     )
