@@ -87,7 +87,7 @@ def _train_xgb_for_rq3(
     )
     model.fit(X_train, y_train)
 
-[O    y_pred = model.predict(X_val)
+    y_pred = model.predict(X_val)
     y_proba = model.predict_proba(X_val)[:, 1]
     metrics = _compute_metrics(y_val, y_pred, y_proba)
 
@@ -156,7 +156,7 @@ def plot_rq3_feature_importance(
 
     plt.figure(figsize=(8, 6))
     plt.barh(range(len(predictors_sorted)), importances_sorted)
-[I    plt.yticks(range(len(predictors_sorted)), predictors_sorted)
+    plt.yticks(range(len(predictors_sorted)), predictors_sorted)
     plt.xlabel("Importance score")
     plt.title("RQ3 – Relative importance of predictors (XGBoost)")
     plt.tight_layout()

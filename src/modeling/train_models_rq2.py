@@ -80,8 +80,10 @@ def _select_features_scms(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    # Drop obvious IDs and string descriptors if present
+    # Drop target and intermediate columns used to create target
     drop_cols = [
+        TARGET_COL,
+        "delay_days",
         "ID",
         "Project Code",
         "PQ #",
@@ -199,20 +201,40 @@ def run_rq2_table3(
     records.append(metrics)
 
     # ------------------------------------------------------------------
-    # 2) SCMS only (no label available → metrics set to N/A)
+    # 2) SCMS only
     # ------------------------------------------------------------------
     df_scms = pd.read_csv(scms_path, low_memory=False)
-    _ = _select_features_scms(df_scms)  # used only to illustrate feature scope
+    if TARGET_COL not in df_scms.columns:
+        raise ValueError(
+            f"Target column '{TARGET_COL}' not found in SCMS_cleaned dataset."
+        )
 
-    records.append(
-        {
-            "dataset": "SCMS",
-            "accuracy": np.nan,
-            "precision": np.nan,
-            "recall": np.nan,
-            "f1": np.nan,
-        }
+    y_s = df_scms[TARGET_COL].astype(int)
+    X_s_df = _select_features_scms(df_scms)
+    X_s = X_s_df.values
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_s, y_s.values, test_size=0.2, random_state=42, stratify=y_s
     )
+
+    xgb_scms = XGBClassifier(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="binary:logistic",
+        eval_metric="logloss",
+        random_state=42,
+        n_jobs=-1,
+    )
+    xgb_scms.fit(X_train, y_train)
+
+    y_pred = xgb_scms.predict(X_val)
+    metrics = _compute_cls_metrics(y_val, y_pred)
+    metrics.update({"dataset": "SCMS"})
+    records.append(metrics)
+
 
     # ------------------------------------------------------------------
     # 3) Merged multi-source dataset

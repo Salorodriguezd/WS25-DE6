@@ -1,5 +1,5 @@
-from data_ingestion.load_data import load_dataco_raw
-from data_cleaning.clean_dataco import clean_dataco
+from src.data_ingestion.load_data_DataCoSupplyChain import load_dataco_raw
+from src.data_cleaning.clean_data_DataCoSupplyChain import clean_dataco
 from pathlib import Path
 
 DATA_DIR = Path("data")
@@ -11,8 +11,8 @@ if __name__ == "__main__":
     # 2) clean
     df_clean = clean_dataco(df_raw)
 
-    # 3) save intermediate outputs
-    output_path = DATA_DIR / "intermediate" / "DataCo_clean_dates_ddmmyyyy.csv"
+    # 3) save cleaned output
+    output_path = DATA_DIR / "DataCo_clean_dates_ddmmyyyy.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df_clean.to_csv(output_path, index=False)
 
