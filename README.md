@@ -87,24 +87,77 @@ WS25-DE6/
 
 ### 5.1. Environment setup
 
+Create and activate a virtual environment, then install dependencies:
+
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows Git Bash: source .venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
-Make sure the raw Kaggle CSV files are downloaded (see Dataset links above) and placed under `data/raw/` or the paths expected by your cleaning scripts.
+Make sure the raw Kaggle CSV files are downloaded (see Dataset links in Section 3) and placed under `data/raw/`:
 
-### 5.2. Generate merged and feature‑engineered data
+- `data/raw/DataCoSupplyChainDataset.csv`
+- `data/raw/SCMS_Delivery_History_Dataset.csv`
+
+If your raw files have different names, adjust the paths in the ingestion scripts (`src/data_ingestion/load_data_*.py`).
+
+***
+
+### 5.2. Data cleaning
+
+Before merging or modeling, each dataset must be cleaned independently.
+
+#### Clean DataCo dataset
+
+```bash
+python -m src.data_ingestion.run_DataCo_pipeline
+```
+
+This step:
+
+- Loads `data/raw/DataCoSupplyChainDataset.csv`
+- Parses dates, removes duplicates, handles missing values
+- Saves the cleaned dataset to `data/DataCo_clean_dates_ddmmyyyy.csv`
+
+
+#### Clean SCMS dataset
+
+```bash
+python -m src.data_ingestion.run_DataSCMS_pipeline
+```
+
+This step:
+
+- Loads `data/raw/SCMS_Delivery_History_Dataset.csv`
+- Parses delivery dates and creates the `Late_delivery_risk` target column based on:
+    - `Late_delivery_risk = 1` if `Delivered to Client Date > Scheduled Delivery Date`
+    - `Late_delivery_risk = 0` otherwise (on time or early)
+- Cleans categorical variables and numeric columns
+- Saves the cleaned dataset to `data/SCMS_cleaned.csv`
+
+After this step, both cleaned datasets are ready for integration.
+
+***
+
+### 5.3. Feature engineering
+
+Now that both datasets are cleaned, we can merge them and create engineered features.
 
 #### 1) Merge DataCo + SCMS into a single table
 
 ```bash
 python -m src.feature_engineering.merge_multisource
 ```
-This step reads the cleaned DataCo and SCMS datasets, aligns keys and date formats, and writes the merged multi‑source table:
 
-- `data/merged/merged_dataco_scms.csv`
+This step:
+
+- Reads `data/DataCo_clean_dates_ddmmyyyy.csv` and `data/SCMS_cleaned.csv`
+- Performs a left join on `Country` (or route-level aggregates)
+- Aligns date formats and keys
+- Saves the merged multi-source table to:
+    - `data/merged/merged_dataco_scms.csv`
+
 
 #### 2) Create engineered features on the merged table
 
@@ -112,25 +165,109 @@ This step reads the cleaned DataCo and SCMS datasets, aligns keys and date forma
 python -m src.feature_engineering.engineer_features
 ```
 
-This step takes `merged_dataco_scms.csv` and adds high‑level engineered features such as:
+This step:
 
-- lead_time_days
+- Loads `data/merged/merged_dataco_scms.csv`
+- Creates high-level engineered features:
+    - `lead_time_days` – time from order to shipping
+    - `ship_mode_risk` – historical late-delivery rate per shipping mode
+    - `customer_delay_history` – late-delivery rate per customer
+    - `product_delay_rate` – delay rate per product category
+    - `route_delay_rate` – delay rate per (country, shipping mode) combination
+    - `shipment_weight` – SCMS-derived average weight
+- Saves the feature-engineered dataset to:
+    - `data/merged/merged_with_engineered_features.csv`
 
-- ship_mode_risk
+All RQ1–RQ3 modeling scripts use this file as their main input.
 
-- customer_delay_history
+***
 
-- product_delay_rate
+### 5.4. Modeling (RQ1, RQ2, RQ3)
 
-- route_delay_rate
+With the feature-engineered dataset ready, run each modeling script to generate figures and tables.
 
-- shipment_weight
+#### RQ1 – Robust pipeline and baseline models
 
-The result is saved as:
+```bash
+python -m src.modeling.train_models_dataco
+```
 
-- `data/merged/merged_with_engineered_features.csv`
+**Outputs**:
 
-All RQ1–RQ3 modeling scripts use this feature‑engineered file as their main input.
+- `tables/RQ1_Table1_model_performance.csv` – Accuracy/Recall/F1 for Logistic Regression, Random Forest, XGBoost
+- `tables/RQ1_Table2_time_based_performance.csv` – ROC-AUC across time-based splits
+- `figures/RQ1_Fig1_feature_importance.pdf` – Top 10 features from Random Forest
+- `figures/RQ1_Fig2_time_based_performance.pdf` – Line plot of ROC-AUC over time
+
+
+#### RQ2 – Single-source vs multi-source comparison
+
+```bash
+python -m src.modeling.train_models_rq2
+```
+
+**Outputs**:
+
+- `tables/RQ2_Table3_multisource_vs_single.csv` – Performance comparison (DataCo vs SCMS vs Merged)
+- `tables/RQ2_Table4_feature_comparison.csv` – Feature type availability matrix
+- `tables/RQ2_Table5_engineered_features.csv` – Catalog of engineered features
+- `figures/RQ2_Fig3_shap_multisource.pdf` – SHAP summary plot
+
+
+#### RQ3 – Significant predictors of delay
+
+```bash
+python -m src.modeling.train_models_rq3
+```
+
+**Outputs**:
+
+- `tables/RQ3_Table6_top_predictors.csv` – Top predictors ranked by importance
+- `figures/RQ3_Fig4_relative_importance.pdf` – Bar chart of predictor importance
+- `figures/RQ3_Fig5_shap_summary.pdf` – SHAP beeswarm plot
+- `figures/RQ3_Fig6_delay_vs_leadtime.pdf` – Delay probability by lead time bucket
+
+All figures and tables are saved in PDF and CSV formats, ready for submission.
+
+***
+
+### 5.5. Optional: Export tables to Excel
+
+If you need Excel versions of the tables for submission:
+
+```bash
+python src/evaluation/export_tables_to_excel.py
+```
+
+This converts all CSV tables in `tables/` to `.xlsx` format.
+
+***
+
+### 5.6. Complete pipeline summary
+
+To run the entire pipeline from raw data to final outputs:
+
+```bash
+# 1. Clean datasets
+python -m src.data_ingestion.run_DataCo_pipeline
+python -m src.data_ingestion.run_DataSCMS_pipeline
+
+# 2. Merge and engineer features
+python -m src.feature_engineering.merge_multisource
+python -m src.feature_engineering.engineer_features
+
+# 3. Generate all RQ outputs
+python -m src.modeling.train_models_dataco
+python -m src.modeling.train_models_rq2
+python -m src.modeling.train_models_rq3
+
+# 4. (Optional) Export to Excel
+python src/evaluation/export_tables_to_excel.py
+```
+
+All outputs will be saved under `figures/` and `tables/`.
+
+***
 
 ## 6. Airflow DAG
 
