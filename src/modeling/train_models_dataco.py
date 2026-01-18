@@ -10,10 +10,10 @@ Outputs (saved under ./tables and ./figures):
     Time-based validation performance across multiple train/test splits.
 
 - figures/RQ1_Fig1_feature_importance.pdf
-    Horizontal bar chart of Random Forest feature importances.
+    Horizontal bar chart of XGBoost feature importances.
 
 - figures/RQ1_Fig2_time_based_performance.pdf
-    Line plot showing ROC-AUC over time-based splits.
+    Line plot showing ROC-AUC over time-based splits using XGBoost.
 """
 
 import os
@@ -239,25 +239,24 @@ def run_baseline_models(
     df_results.to_csv(output_table_path, index=False)
     print(f"Saved RQ1 Table 1 to: {output_table_path}")
 
-    # return feature_names separately (X_train is a NumPy array)
-    return df_results, rf, feature_names
+    return df_results, xgb, feature_names
 
 
 # ---------------------------------------------------------------------
-# RQ1 – Figure 1: feature importance (Random Forest)
+# RQ1 – Figure 1: feature importance (XGBoost)
 # ---------------------------------------------------------------------
 
 
 def plot_feature_importance(
-    rf_model: RandomForestClassifier,
+    xgb_model: XGBClassifier,
     feature_names: List[str],
     output_fig_path: str = "figures/RQ1_Fig1_feature_importance.pdf",
     top_k: int = 10,
 ) -> None:
     """
-    Plot horizontal bar chart of top_k feature importances from a Random Forest.
+    Plot horizontal bar chart of top_k feature importances from XGBoost.
     """
-    importances = rf_model.feature_importances_
+    importances = xgb_model.feature_importances_
     idx = np.argsort(importances)[::-1][:top_k]
 
     top_features = [feature_names[i] for i in idx]
@@ -266,8 +265,8 @@ def plot_feature_importance(
     plt.figure(figsize=(8, 6))
     plt.barh(range(len(top_features)), top_importances[::-1])
     plt.yticks(range(len(top_features)), top_features[::-1])
-    plt.xlabel("Feature importance")
-    plt.title("RQ1 – Feature importance (Random Forest)")
+    plt.xlabel("Feature importance (Gain)")
+    plt.title("RQ1 – Feature importance (XGBoost)")
     plt.tight_layout()
 
     output_fig_path = Path(output_fig_path)
@@ -278,9 +277,8 @@ def plot_feature_importance(
 
 
 # ---------------------------------------------------------------------
-# RQ1 – Table 2 & Figure 2: time-based validation splits
+# RQ1 – Table 2 & Figure 2: time-based validation splits (XGBoost)
 # ---------------------------------------------------------------------
-
 
 def _prepare_time_sorted_df(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -306,7 +304,7 @@ def run_time_based_validation(
     n_splits: int = 4,
 ) -> pd.DataFrame:
     """
-    Create multiple time-based train/test splits and evaluate Random Forest
+    Create multiple time-based train/test splits and evaluate XGBoost
     performance on each split to study robustness over time.
     """
     # 1) sort and clean by date
@@ -341,16 +339,21 @@ def run_time_based_validation(
         X_train, y_train = X_all[train_mask], y_all[train_mask]
         X_test, y_test = X_all[test_mask], y_all[test_mask]
 
-        rf = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=None,
+        xgb = XGBClassifier(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective="binary:logistic",
+            eval_metric="logloss",
             random_state=42,
             n_jobs=-1,
         )
-        rf.fit(X_train, y_train)
+        xgb.fit(X_train, y_train)
 
-        y_pred = rf.predict(X_test)
-        y_proba = rf.predict_proba(X_test)[:, 1]
+        y_pred = xgb.predict(X_test)
+        y_proba = xgb.predict_proba(X_test)[:, 1]
 
         metrics = _compute_metrics(y_test, y_pred, y_proba)
         metrics["cutoff_date"] = cutoff_date
@@ -374,7 +377,7 @@ def run_time_based_validation(
     plt.plot(df_time_perf["cutoff_date"], df_time_perf["roc_auc"], marker="o")
     plt.xlabel("Train end date (cutoff)")
     plt.ylabel("ROC-AUC")
-    plt.title("RQ1 – Time-based validation performance (Random Forest)")
+    plt.title("RQ1 – Time-based validation performance (XGBoost)")
     plt.grid(True)
     plt.tight_layout()
 
@@ -401,12 +404,12 @@ def main(
 
     # RQ1 – Table 1 + Figure 1 (uses merged + engineered features)
     table1_path = "tables/RQ1_Table1_model_performance.csv"
-    df_results, rf_model, feature_names = run_baseline_models(
+    df_results, xgb_model, feature_names = run_baseline_models(
         df, output_table_path=table1_path
     )
 
     plot_feature_importance(
-        rf_model,
+        xgb_model,
         feature_names,
         output_fig_path="figures/RQ1_Fig1_feature_importance.pdf",
         top_k=10,
@@ -429,5 +432,3 @@ if __name__ == "__main__":
         "DE_DATACO_PATH", "data/merged/merged_with_engineered_features.csv"
     )
     main(dataco_path=default_dataco)
-
-
