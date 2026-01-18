@@ -13,7 +13,7 @@ Outputs (saved under ./tables and ./figures):
     Catalog of engineered features resulting from merging multi-source tables.
 
 - figures/RQ2_Fig3_shap_multisource.pdf
-    SHAP summary plot showing predictive power of multi-source features.
+    SHAP comparison: Baseline (DataCo only) vs Integrated (multi-source) models.
 """
 
 from pathlib import Path
@@ -163,7 +163,7 @@ def run_rq2_table3(
     and include SCMS as a row with N/A metrics (no delay label available).
 
     The goal is to match the proposal structure:
-    DataCo vs SCMS vs DataCo+SCMS. [file:116]
+    DataCo vs SCMS vs DataCo+SCMS.
     """
     records: List[Dict[str, float]] = []
 
@@ -235,7 +235,6 @@ def run_rq2_table3(
     metrics.update({"dataset": "SCMS"})
     records.append(metrics)
 
-
     # ------------------------------------------------------------------
     # 3) Merged multi-source dataset
     # ------------------------------------------------------------------
@@ -296,7 +295,7 @@ def build_rq2_table4(
     """
     Schema-level comparison: which feature types are available in each dataset.
 
-    This table follows the structure in the proposal (Table 4). [file:116]
+    This table follows the structure in the proposal (Table 4).
     """
     rows = [
         {
@@ -349,50 +348,10 @@ def build_rq2_table5(
     """
     Engineered features resulting from merging multi-source tables.
 
-    This table mirrors the proposal's Table 5. [file:116]
+    This table mirrors the proposal's Table 5.
     """
     rows = [
-        {
-            "Feature Name": "transit_time_days",
-            "Original Columns Used": "actual_delivery_date, planned_delivery_date",
-            "Source Dataset": "SCMS",
-            "Feature Type": "Temporal",
-            "Description": "Days difference between planned and actual delivery",
-            "Predictive Purpose": "Detect systematic transit delays",
-        },
-        {
-            "Feature Name": "route_delay_rate_90d",
-            "Original Columns Used": "origin, destination, actual_delivery_date, planned_delivery_date",
-            "Source Dataset": "SCMS",
-            "Feature Type": "Historical",
-            "Description": "Share of delays on the same route in the last 90 days",
-            "Predictive Purpose": "Capture structural geographic risk",
-        },
-        {
-            "Feature Name": "avg_route_cost",
-            "Original Columns Used": "shipment_cost, origin, destination",
-            "Source Dataset": "SCMS",
-            "Feature Type": "Statistical",
-            "Description": "Average shipping cost per route",
-            "Predictive Purpose": "Proxy for logistics constraints and complexity",
-        },
-        {
-            "Feature Name": "transit_time_std",
-            "Original Columns Used": "actual_delivery_date, origin, destination",
-            "Source Dataset": "SCMS",
-            "Feature Type": "Variability",
-            "Description": "Variance of historic transit times",
-            "Predictive Purpose": "Identify unstable or unpredictable routes",
-        },
-        {
-            "Feature Name": "order_processing_time",
-            "Original Columns Used": "order_date, shipping_date",
-            "Source Dataset": "DataCo",
-            "Feature Type": "Temporal",
-            "Description": "Time from order creation to shipping",
-            "Predictive Purpose": "Measure internal operational lead time",
-        },
-        {
+                {
             "Feature Name": "customer_delay_history",
             "Original Columns Used": "customer_id, Late_delivery_risk",
             "Source Dataset": "DataCo",
@@ -434,34 +393,41 @@ def build_rq2_table5(
 
 
 # ---------------------------------------------------------------------
-# RQ2 – Figure 3: SHAP summary for multi-source model
+# RQ2 – Figure 3: SHAP comparison (Baseline vs Integrated)
 # ---------------------------------------------------------------------
 
 
 def plot_rq2_shap_multisource(
+    dataco_path: str = "data/DataCo_clean_dates_ddmmyyyy.csv",
     merged_path: str = "data/merged/merged_with_engineered_features.csv",
     output_fig: str = "figures/RQ2_Fig3_shap_multisource.pdf",
 ) -> None:
     """
-    Train XGBoost on merged multi-source data and create a SHAP summary plot
-    for feature importance and directional effects (Figure 3). [file:116]
+    Train XGBoost on:
+    1) DataCo only (baseline)
+    2) Merged multi-source data (integrated)
+    
+    Create side-by-side SHAP bar plots to compare feature importance
+    and show the impact of multi-source integration.
     """
-    df = pd.read_csv(merged_path, low_memory=False)
-    if TARGET_COL not in df.columns:
-        raise ValueError(
-            f"Target column '{TARGET_COL}' not found in merged dataset."
-        )
-
-    y = df[TARGET_COL].astype(int)
-    X_df = _select_features_merged(df)
-    feature_names = X_df.columns.tolist()
-    X = X_df.values
-
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y.values, test_size=0.2, random_state=42, stratify=y
+    # ------------------------------------------------------------------
+    # 1) Baseline: DataCo only
+    # ------------------------------------------------------------------
+    print("Training baseline model (DataCo only)...")
+    df_dataco = pd.read_csv(dataco_path, low_memory=False)
+    if TARGET_COL not in df_dataco.columns:
+        raise ValueError(f"Target column '{TARGET_COL}' not found in DataCo dataset.")
+    
+    y_base = df_dataco[TARGET_COL].astype(int)
+    X_base_df = _select_features_dataco(df_dataco)
+    feature_names_base = X_base_df.columns.tolist()
+    X_base = X_base_df.values
+    
+    X_train_base, X_val_base, y_train_base, y_val_base = train_test_split(
+        X_base, y_base.values, test_size=0.2, random_state=42, stratify=y_base
     )
-
-    model = XGBClassifier(
+    
+    model_base = XGBClassifier(
         n_estimators=300,
         max_depth=6,
         learning_rate=0.1,
@@ -472,22 +438,85 @@ def plot_rq2_shap_multisource(
         random_state=42,
         n_jobs=-1,
     )
-    model.fit(X_train, y_train)
-
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer(X_val)
-
-    plt.figure(figsize=(8, 6))
-    shap.summary_plot(
-        shap_values, X_val, feature_names=feature_names, show=False
+    model_base.fit(X_train_base, y_train_base)
+    
+    explainer_base = shap.TreeExplainer(model_base)
+    shap_values_base = explainer_base(X_val_base)
+    
+    # ------------------------------------------------------------------
+    # 2) Integrated: merged multi-source data
+    # ------------------------------------------------------------------
+    print("Training integrated model (DataCo + SCMS + Engineered)...")
+    df_merged = pd.read_csv(merged_path, low_memory=False)
+    if TARGET_COL not in df_merged.columns:
+        raise ValueError(f"Target column '{TARGET_COL}' not found in merged dataset.")
+    
+    y_merged = df_merged[TARGET_COL].astype(int)
+    X_merged_df = _select_features_merged(df_merged)
+    feature_names_merged = X_merged_df.columns.tolist()
+    X_merged = X_merged_df.values
+    
+    X_train_merged, X_val_merged, y_train_merged, y_val_merged = train_test_split(
+        X_merged, y_merged.values, test_size=0.2, random_state=42, stratify=y_merged
     )
-
+    
+    model_merged = XGBClassifier(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="binary:logistic",
+        eval_metric="logloss",
+        random_state=42,
+        n_jobs=-1,
+    )
+    model_merged.fit(X_train_merged, y_train_merged)
+    
+    explainer_merged = shap.TreeExplainer(model_merged)
+    shap_values_merged = explainer_merged(X_val_merged)
+    
+    # ------------------------------------------------------------------
+    # 3) Side-by-side comparison plot
+    # ------------------------------------------------------------------
+    print("Creating SHAP comparison plot...")
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # Baseline (left)
+    plt.subplot(1, 2, 1)
+    shap.summary_plot(
+        shap_values_base,
+        X_val_base,
+        feature_names=feature_names_base,
+        plot_type="bar",
+        show=False,
+        max_display=15,
+    )
+    ax1 = plt.gca()
+    ax1.set_title("Baseline (DataCo only)", fontsize=14, fontweight='bold')
+    ax1.set_xlabel("mean(|SHAP value|)", fontsize=12)
+    
+    # Integrated (right)
+    plt.subplot(1, 2, 2)
+    shap.summary_plot(
+        shap_values_merged,
+        X_val_merged,
+        feature_names=feature_names_merged,
+        plot_type="bar",
+        show=False,
+        max_display=15,
+    )
+    ax2 = plt.gca()
+    ax2.set_title("Integrated (DataCo + SCMS + Engineered)", fontsize=14, fontweight='bold')
+    ax2.set_xlabel("mean(|SHAP value|)", fontsize=12)
+    
+    plt.tight_layout()
+    
     out_path = Path(output_fig)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
-    print(f"Saved RQ2 Figure 3 (SHAP summary) to: {out_path}")
+    print(f"Saved RQ2 Figure 3 (SHAP comparison: Baseline vs Integrated) to: {out_path}")
 
 
 # ---------------------------------------------------------------------
@@ -505,8 +534,11 @@ def main() -> None:
     # Table 5: engineered features
     build_rq2_table5()
 
-    # Figure 3: SHAP on multi-source model
-    plot_rq2_shap_multisource()
+    # Figure 3: SHAP comparison (Baseline vs Integrated)
+    plot_rq2_shap_multisource(
+        dataco_path="data/DataCo_clean_dates_ddmmyyyy.csv",
+        merged_path="data/merged/merged_with_engineered_features.csv"
+    )
 
 
 if __name__ == "__main__":
