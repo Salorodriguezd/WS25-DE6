@@ -17,6 +17,8 @@ This repository contains the technical implementation for Part II of the Data En
   - Train baseline and boosted models
   - Answer RQ1–RQ3 with reproducible figures and tables
 
+About the technical description, please visit our [Wiki](https://github.com/Salorodriguezd/WS25-DE6/wiki) ! 🧐
+
 ## 2. Research questions
 
 - **RQ1**: How can a machine learning pipeline be designed to remain robust when integrating multi‑source supply chain data?
