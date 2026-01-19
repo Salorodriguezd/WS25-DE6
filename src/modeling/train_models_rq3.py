@@ -288,4 +288,40 @@ def main(
 if __name__ == "__main__":
     main()
 
+# Here, add some codes for samples
+def save_trained_model(
+    merged_path: str = "data/merged/merged_with_engineered_features.csv",
+    model_output_path: str = "models/xgboost_delay_predictor.pkl",
+) -> None:
+    """
+    Train and save the final XGBoost model for delay prediction demo.
+    """
+    import joblib
+    
+    print("Training final model for prediction demo...")
+    
+    # Train the model
+    model, X_train, X_val, y_train, y_val, feature_names, metrics = _train_xgb_for_rq3(
+        pd.read_csv(merged_path, low_memory=False)
+    )
+    
+    # Save model and feature names
+    Path(model_output_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    joblib.dump({
+        'model': model,
+        'feature_names': feature_names,
+        'metrics': metrics
+    }, model_output_path)
+    
+    print(f"Model saved to: {model_output_path}")
+    print(f"Features used: {len(feature_names)}")
+    print(f"Validation ROC-AUC: {metrics['roc_auc']:.4f}")
 
+
+if __name__ == "__main__":
+    # Run the original main
+    main()
+    
+    # Save the trained model
+    save_trained_model()
